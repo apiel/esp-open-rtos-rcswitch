@@ -1,5 +1,8 @@
 #define ESP8266
 
+#define ICACHE_RAM_ATTR
+// #define ICACHE_RAM_ATTR     __attribute__((section(".iram.text")))
+
 #include <espressif/esp_common.h>
 #include <esp8266.h>
 
@@ -26,9 +29,13 @@ void digitalWrite(uint8_t pin, uint8_t val)
     gpio_write(pin, val);
 }
 
-void delayMicroseconds(unsigned int us)
+void ICACHE_RAM_ATTR delayMicroseconds(unsigned int us)
 {
     sdk_os_delay_us(us);
+}
+
+unsigned long ICACHE_RAM_ATTR micros() {
+    return sdk_system_get_time();
 }
 
 // voidFuncPtr globalhandler;
