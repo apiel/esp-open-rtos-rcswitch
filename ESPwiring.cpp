@@ -23,8 +23,17 @@ void ICACHE_RAM_ATTR delayMicroseconds(unsigned int us)
 }
 
 unsigned long ICACHE_RAM_ATTR micros() {
+    // printf("utime: %u\n", sdk_system_get_time());
     return sdk_system_get_time();
+    // return system_get_time();
 }
+
+// unsigned long micros()
+// {
+//     unsigned long value = xthal_get_ccount() / sdk_system_get_cpu_freq();
+//     // printf("utime: %u <> %u\n", value, sdk_system_get_time());
+//     return value;
+// }
 
 // voidFuncPtr globalhandler;
 // void callHandler(uint8_t gpio_num)
@@ -36,12 +45,16 @@ unsigned long ICACHE_RAM_ATTR micros() {
 static voidFuncPtr handlers[MAX_HANDLERS] = { 0 };
 void handleGPIO(unsigned char pin)
 {
-    if (pin < MAX_HANDLERS)
+    if (pin < MAX_HANDLERS) {
+        // printf("handle gpio %d\n", pin);
         handlers[pin]();
+    }
 }
 
 void attachInterrupt(uint8_t pin, voidFuncPtr handler, int mode)
 {
+    gpio_enable(pin, GPIO_INPUT);
+    printf("attach interrupt %d\n", pin);
     // globalhandler = handler;
     // gpio_set_interrupt(pin, GPIO_INTTYPE_EDGE_ANY, callHandler);
 

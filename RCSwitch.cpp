@@ -607,7 +607,7 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     const unsigned int syncLengthInPulses =  ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
     const unsigned int delay = RCSwitch::timings[0] / syncLengthInPulses;
     const unsigned int delayTolerance = delay * RCSwitch::nReceiveTolerance / 100;
-    
+
     /* For protocols that start low, the sync period looks like
      *               _________
      * _____________|         |XXXXXXXXXXXX|
@@ -627,16 +627,21 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
      */
     const unsigned int firstDataTiming = (pro.invertedSignal) ? (2) : (1);
 
+    //printf("uiui: %d %d %d :: %d < %d\n", syncLengthInPulses, delay, delayTolerance, firstDataTiming, changeCount - 1);
+
     for (unsigned int i = firstDataTiming; i < changeCount - 1; i += 2) {
         code <<= 1;
         if (diff(RCSwitch::timings[i], delay * pro.zero.high) < delayTolerance &&
             diff(RCSwitch::timings[i + 1], delay * pro.zero.low) < delayTolerance) {
             // zero
+            // printf("-> 0\n");
         } else if (diff(RCSwitch::timings[i], delay * pro.one.high) < delayTolerance &&
                    diff(RCSwitch::timings[i + 1], delay * pro.one.low) < delayTolerance) {
             // one
             code |= 1;
+            // printf("-> 1\n");
         } else {
+          // printf("faileddddd\n");
             // Failed
             return false;
         }
@@ -662,16 +667,20 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   const long time = micros();
   const unsigned int duration = time - lastTime;
 
+  // printf("long gap %u :: %u\n", duration, RCSwitch::nSeparationLimit);
   if (duration > RCSwitch::nSeparationLimit) {
+    // printf("uiiiuo %d > %d\n", duration, RCSwitch::nSeparationLimit);
     // A long stretch without signal level change occurred. This could
     // be the gap between two transmission.
     if (diff(duration, RCSwitch::timings[0]) < 200) {
+      // printf("yo %d\n", diff(duration, RCSwitch::timings[0]));
       // This long signal is close in length to the long signal which
       // started the previously recorded timings; this suggests that
       // it may indeed by a a gap between two transmissions (we assume
       // here that a sender will send the signal multiple times,
       // with roughly the same gap between them).
       repeatCount++;
+      // printf("repeatCount %d\n", repeatCount);
       if (repeatCount == 2) {
         for(unsigned int i = 1; i <= numProto; i++) {
           if (receiveProtocol(i, changeCount)) {
@@ -682,8 +691,16 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
         repeatCount = 0;
       }
     }
+    // printf("changeCount %d\n", changeCount);
     changeCount = 0;
+    //printf("change cound to 0\n");
+  } else {
+    //printf("pffff %d %d\n", duration, changeCount);
   }
+
+  if (changeCount > 10) {
+printf("changeCount oyeah %d\n", changeCount);
+}
  
   // detect overflow
   if (changeCount >= RCSWITCH_MAX_CHANGES) {
