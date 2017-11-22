@@ -53,7 +53,7 @@ void handleGPIO(unsigned char pin)
 
 void attachInterrupt(uint8_t pin, voidFuncPtr handler, int mode)
 {
-    gpio_enable(pin, GPIO_INPUT);
+    gpio_enable(pin, GPIO_INPUT); // this is the pb!!!
     printf("attach interrupt %d\n", pin);
     // globalhandler = handler;
     // gpio_set_interrupt(pin, GPIO_INTTYPE_EDGE_ANY, callHandler);

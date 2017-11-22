@@ -667,7 +667,7 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   const long time = micros();
   const unsigned int duration = time - lastTime;
 
-  // printf("long gap %u :: %u\n", duration, RCSwitch::nSeparationLimit);
+  // printf("uiiiuo %d > %d\n", duration, RCSwitch::nSeparationLimit);
   if (duration > RCSwitch::nSeparationLimit) {
     // printf("uiiiuo %d > %d\n", duration, RCSwitch::nSeparationLimit);
     // A long stretch without signal level change occurred. This could
@@ -698,9 +698,9 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
     //printf("pffff %d %d\n", duration, changeCount);
   }
 
-  if (changeCount > 10) {
-printf("changeCount oyeah %d\n", changeCount);
-}
+//   if (changeCount > 10) {
+// printf("changeCount oyeah %d\n", changeCount);
+// }
  
   // detect overflow
   if (changeCount >= RCSWITCH_MAX_CHANGES) {
