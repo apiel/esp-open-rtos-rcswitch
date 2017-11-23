@@ -73,13 +73,14 @@ static const RCSwitch::Protocol proto[] = {
 #else
 static const RCSwitch::Protocol PROGMEM proto[] = {
 #endif
-  { 350, {  1, 31 }, {  1,  3 }, {  3,  1 }, false },    // protocol 1
-  { 650, {  1, 10 }, {  1,  2 }, {  2,  1 }, false },    // protocol 2
-  { 100, { 30, 71 }, {  4, 11 }, {  9,  6 }, false },    // protocol 3
-  { 380, {  1,  6 }, {  1,  3 }, {  3,  1 }, false },    // protocol 4
-  { 500, {  6, 14 }, {  1,  2 }, {  2,  1 }, false },    // protocol 5
-  { 450, { 23,  1 }, {  1,  2 }, {  2,  1 }, true },      // protocol 6 (HT6P20B)
-  { 150, {  2, 62 }, {  1,  6 }, {  6,  1 }, false }     // protocol 7 (HS2303-PT, i. e. used in AUKEY Remote)
+  { 350, {  1, 31 }, {  1,  3 }, {  3,  1 }, false, { 0, 0 } },    // protocol 1
+  { 650, {  1, 10 }, {  1,  2 }, {  2,  1 }, false, { 0, 0 } },    // protocol 2
+  { 100, { 30, 71 }, {  4, 11 }, {  9,  6 }, false, { 0, 0 } },    // protocol 3
+  { 380, {  1,  6 }, {  1,  3 }, {  3,  1 }, false, { 0, 0 } },    // protocol 4
+  { 500, {  6, 14 }, {  1,  2 }, {  2,  1 }, false, { 0, 0 } },    // protocol 5
+  { 450, { 23,  1 }, {  1,  2 }, {  2,  1 }, true, { 0, 0 } },     // protocol 6 (HT6P20B)
+  { 150, {  2, 62 }, {  1,  6 }, {  6,  1 }, false, { 0, 0 } },    // protocol 7 (HS2303-PT, i. e. used in AUKEY Remote)
+  { 300, {  1, 33 }, {  1,  1 }, {  1,  4 }, false, { 1, 81 } },    // protocol 8 Home easy
 };
 
 enum {
@@ -618,18 +619,39 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
      *
      * |--1st dur--|-2nd dur-|-Start data-|
      *
-     * The 3rd saved duration starts the data.
-     *
-     * For protocols that start high, the sync period looks like
-     *
-     *  ______________
-     * |              |____________|XXXXXXXXXXXXX|
-     *
-     * |-filtered out-|--1st dur--|--Start data--|
-     *
-     * The 2nd saved duration starts the data
+     *  
+   { {5700 , 50}, {0, 0}, {180, 100}, {551, 100}, PULSE_LOW_HIGH, PULSE_HIGH_LOW, false },
+
+  { 350, {  1, 31 }, {  1,  3 }, {  3,  1 }, false },    // protocol 1
+  { 650, {  1, 10 }, {  1,  2 }, {  2,  1 }, false },    // protocol 2
+  { 100, { 30, 71 }, {  4, 11 }, {  9,  6 }, false },    // protocol 3
+  { 380, {  1,  6 }, {  1,  3 }, {  3,  1 }, false },    // protocol 4
+  { 500, {  6, 14 }, {  1,  2 }, {  2,  1 }, false },    // protocol 5
+  { 450, { 23,  1 }, {  1,  2 }, {  2,  1 }, true },      // protocol 6 (HT6P20B)
+  { 150, {  2, 62 }, {  1,  6 }, {  6,  1 }, false }     // protocol 7 (HS2303-PT, i. e. used in AUKEY Remote)
+
+
+  { 300, {  1, 33 }, {  1,  1 }, {  1,  4 }, false },    // protocol 8
+};
+     * 
+    { {9900 , 1000}, {2675, 180}, {275, 180}, {1225, 180}, PULSE_LOW_LOW, PULSE_LOW_HIGH, true },
+    { {5700 , 50}, {0, 0}, {180, 100}, {551, 100}, PULSE_LOW_HIGH, PULSE_HIGH_LOW, false },
+
+5649 242 495 241 495 242 498 238 499 237 499 606 133 236 500 236 500 236 502 603 136 233 500 604 132 238 501 602 134 234 507 598 138 229 511 227 508 596 142 594 144 224 514 223 519 586 144 592 145 224 
+details 31 182 109   
+syncLengthInPulses, delay, delayTolerance
      */
-    const unsigned int firstDataTiming = (pro.invertedSignal) ? (2) : (1);
+    unsigned int firstDataTiming = 1;
+    if (pro.latch.low && pro.latch.high) {
+        if (diff(RCSwitch::timings[1], delay * pro.latch.low) > delayTolerance ||
+            diff(RCSwitch::timings[2], delay * pro.latch.high) > delayTolerance) {
+              return false;
+        }
+        firstDataTiming += 2;
+    }
+    if (pro.invertedSignal) {
+        firstDataTiming++;
+    }
 
     for (unsigned int i = firstDataTiming; i < changeCount - 1; i += 2) {
         code <<= 1;
@@ -648,9 +670,11 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
 
     if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
         RCSwitch::nReceivedValue = code;
-        RCSwitch::nReceivedBitlength = (changeCount - 1) / 2;
+        RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 1 : 3)) / 2;
         RCSwitch::nReceivedDelay = delay;
         RCSwitch::nReceivedProtocol = p;
+
+        printf("\ndetails %d %d %d\n", syncLengthInPulses, delay, delayTolerance);
         return true;
     }
 

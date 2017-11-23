@@ -142,6 +142,12 @@ class RCSwitch {
          * FOO.low*pulseLength microseconds.
          */
         bool invertedSignal;
+
+        /**
+         * If set, it check for a second long pulse at the begening of the protocol
+         * Home Easy protocol (Home Easy, Domia Lite, Klik aan Klik uit, Byron, Bye Bye Standby, Nexa) 
+         */
+        HighLow latch;
     };
 
     void setProtocol(Protocol protocol);

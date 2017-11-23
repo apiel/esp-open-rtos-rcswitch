@@ -23,7 +23,12 @@ private:
                 if (value == 0) {
                     printf("Unknown encoding\n");
                 } else {
-                    printf("Received %lu / %d bit, Protocol %d\n", mySwitch.getReceivedValue(), 
+                    unsigned int * timings = mySwitch.getReceivedRawdata();
+                    unsigned int changeCount = mySwitch.getReceivedBitlength()*2 + 1;
+                    for(unsigned int o = 0; o < changeCount; o++) {
+                        printf("%d ", timings[o]);
+                    }                    
+                    printf("\nReceived %lu / %d bit, Protocol %d\n", mySwitch.getReceivedValue(), 
                                 mySwitch.getReceivedBitlength(), mySwitch.getReceivedProtocol());
                 }
 
