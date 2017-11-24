@@ -80,7 +80,7 @@ static const RCSwitch::Protocol PROGMEM proto[] = {
   { 500, {  6, 14 }, {  1,  2 }, {  2,  1 }, false, { 0, 0 } },    // protocol 5
   { 450, { 23,  1 }, {  1,  2 }, {  2,  1 }, true, { 0, 0 } },     // protocol 6 (HT6P20B)
   { 150, {  2, 62 }, {  1,  6 }, {  6,  1 }, false, { 0, 0 } },    // protocol 7 (HS2303-PT, i. e. used in AUKEY Remote)
-  { 300, {  1, 33 }, {  1,  1 }, {  1,  4 }, false, { 1, 81 } },    // protocol 8 Home easy
+  { 300, {  1, 33 }, {  1,  1 }, {  1,  4 }, false, { 1, 9 } },    // protocol 8 Home easy
 };
 
 enum {
@@ -606,6 +606,7 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     Protocol pro;
     memcpy_P(&pro, &proto[p-1], sizeof(Protocol));
 #endif
+    // printf("checl proto %d %d\n", p, changeCount);
 
     unsigned long code = 0;
     //Assuming the longer pulse length is the pulse captured in timings[0]
@@ -643,8 +644,8 @@ syncLengthInPulses, delay, delayTolerance
      */
     unsigned int firstDataTiming = 1;
     if (pro.latch.low && pro.latch.high) {
-        if (diff(RCSwitch::timings[1], delay * pro.latch.low) > delayTolerance ||
-            diff(RCSwitch::timings[2], delay * pro.latch.high) > delayTolerance) {
+        if (diff(RCSwitch::timings[2], delay * pro.latch.low) > delayTolerance ||
+            diff(RCSwitch::timings[1], delay * pro.latch.high) > delayTolerance) {
               return false;
         }
         firstDataTiming += 2;
@@ -670,7 +671,7 @@ syncLengthInPulses, delay, delayTolerance
 
     if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
         RCSwitch::nReceivedValue = code;
-        RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 1 : 3)) / 2;
+        RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 3 : 1)) / 2;
         RCSwitch::nReceivedDelay = delay;
         RCSwitch::nReceivedProtocol = p;
 
@@ -693,12 +694,14 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   if (duration > RCSwitch::nSeparationLimit) {
     // A long stretch without signal level change occurred. This could
     // be the gap between two transmission.
+    // printf("yoyoyoy %d - %d diff %d\n", RCSwitch::timings[0], duration, diff(duration, RCSwitch::timings[0]));
     if (diff(duration, RCSwitch::timings[0]) < 200) {
       // This long signal is close in length to the long signal which
       // started the previously recorded timings; this suggests that
       // it may indeed by a a gap between two transmissions (we assume
       // here that a sender will send the signal multiple times,
       // with roughly the same gap between them).
+      // printf("repeatCount %d\n", repeatCount);
       repeatCount++;
       if (repeatCount == 2) {
         for(unsigned int i = 1; i <= numProto; i++) {
@@ -716,10 +719,13 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   // detect overflow
   if (changeCount >= RCSWITCH_MAX_CHANGES) {
     changeCount = 0;
+    printf("overflow, reset repeat count\n");
     repeatCount = 0;
   }
 
-  RCSwitch::timings[changeCount++] = duration;
+  if (duration > RCSwitch::nSeparationLimit || changeCount ) {
+    RCSwitch::timings[changeCount++] = duration;
+  }
   lastTime = time;  
 }
 #endif
