@@ -468,24 +468,6 @@ void RCSwitch::sendTriState(const char* sCodeWord) {
  * @param sCodeWord   a binary code word consisting of the letter 0, 1
  */
 void RCSwitch::send(const char* sCodeWord) {
-  // turn the tristate code word into the corresponding bit pattern, then send it
-  unsigned long code = 0;
-  unsigned int length = 0;
-  for (const char* p = sCodeWord; *p; p++) {
-    code <<= 1L;
-    if (*p != '0')
-      code |= 1L;
-    length++;
-  }
-  this->send(code, length);
-}
-
-/**
- * Transmit the first 'length' bits of the integer 'code'. The
- * bits are sent from MSB to LSB, i.e., first the bit at position length-1,
- * then the bit at position length-2, and so on, till finally the bit at position 0.
- */
-void RCSwitch::send(unsigned long code, unsigned int length) {
   if (this->nTransmitterPin == -1)
     return;
 
@@ -495,14 +477,17 @@ void RCSwitch::send(unsigned long code, unsigned int length) {
   if (nReceiverInterrupt_backup != -1) {
     this->disableReceive();
   }
-#endif
+#endif    
 
   for (int nRepeat = 0; nRepeat < nRepeatTransmit; nRepeat++) {
-    for (int i = length-1; i >= 0; i--) {
-      if (code & (1L << i))
-        this->transmit(protocol.one);
-      else
+    if (protocol.latch.low && protocol.latch.high) {
+      this->transmit(protocol.latch);
+    }
+    for (const char* p = sCodeWord; *p; p++) {
+      if (*p == '0')
         this->transmit(protocol.zero);
+      else
+        this->transmit(protocol.one);
     }
     this->transmit(protocol.syncFactor);
   }
@@ -519,15 +504,37 @@ void RCSwitch::send(unsigned long code, unsigned int length) {
 }
 
 /**
+ * Transmit the first 'length' bits of the integer 'code'. The
+ * bits are sent from MSB to LSB, i.e., first the bit at position length-1,
+ * then the bit at position length-2, and so on, till finally the bit at position 0.
+ */
+void RCSwitch::send(unsigned long code, unsigned int length) {
+  char sCodeWord[RCSWITCH_MAX_CHANGES];
+
+  for (int i = length-1; i >= 0; i--) {
+    if (code & (1L << i))
+      sCodeWord[(length-1) - i] = '1';
+    else
+      sCodeWord[(length-1) - i] = '0';
+  }
+  sCodeWord[length] = '\0';
+  send(sCodeWord);
+}
+
+/**
  * Transmit a single high-low pulse.
  */
 void RCSwitch::transmit(HighLow pulses) {
   uint8_t firstLogicLevel = (this->protocol.invertedSignal) ? LOW : HIGH;
   uint8_t secondLogicLevel = (this->protocol.invertedSignal) ? HIGH : LOW;
   
+  printf("%d %d ", this->protocol.pulseLength * pulses.high, this->protocol.pulseLength * pulses.low);
+
   digitalWrite(this->nTransmitterPin, firstLogicLevel);
+  // printf("%d ", this->protocol.pulseLength * pulses.high);
   delayMicroseconds( this->protocol.pulseLength * pulses.high);
   digitalWrite(this->nTransmitterPin, secondLogicLevel);
+  // printf("%d ", this->protocol.pulseLength * pulses.low);
   delayMicroseconds( this->protocol.pulseLength * pulses.low);
 }
 
@@ -571,6 +578,10 @@ void RCSwitch::resetAvailable() {
   RCSwitch::nReceivedValue = 0;
 }
 
+// char * RCSwitch::getReceivedCodeWord() {
+//   return RCSwitch::nReceivedCodeWord;
+// }
+
 unsigned long RCSwitch::getReceivedValue() {
   return RCSwitch::nReceivedValue;
 }
@@ -606,42 +617,12 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     Protocol pro;
     memcpy_P(&pro, &proto[p-1], sizeof(Protocol));
 #endif
-    // printf("checl proto %d %d\n", p, changeCount);
-
+    char sCodeWord[RCSWITCH_MAX_CHANGES];
     unsigned long code = 0;
     //Assuming the longer pulse length is the pulse captured in timings[0]
     const unsigned int syncLengthInPulses =  ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
     const unsigned int delay = RCSwitch::timings[0] / syncLengthInPulses;
     const unsigned int delayTolerance = delay * RCSwitch::nReceiveTolerance / 100;
-    
-    /* For protocols that start low, the sync period looks like
-     *               _________
-     * _____________|         |XXXXXXXXXXXX|
-     *
-     * |--1st dur--|-2nd dur-|-Start data-|
-     *
-     *  
-   { {5700 , 50}, {0, 0}, {180, 100}, {551, 100}, PULSE_LOW_HIGH, PULSE_HIGH_LOW, false },
-
-  { 350, {  1, 31 }, {  1,  3 }, {  3,  1 }, false },    // protocol 1
-  { 650, {  1, 10 }, {  1,  2 }, {  2,  1 }, false },    // protocol 2
-  { 100, { 30, 71 }, {  4, 11 }, {  9,  6 }, false },    // protocol 3
-  { 380, {  1,  6 }, {  1,  3 }, {  3,  1 }, false },    // protocol 4
-  { 500, {  6, 14 }, {  1,  2 }, {  2,  1 }, false },    // protocol 5
-  { 450, { 23,  1 }, {  1,  2 }, {  2,  1 }, true },      // protocol 6 (HT6P20B)
-  { 150, {  2, 62 }, {  1,  6 }, {  6,  1 }, false }     // protocol 7 (HS2303-PT, i. e. used in AUKEY Remote)
-
-
-  { 300, {  1, 33 }, {  1,  1 }, {  1,  4 }, false },    // protocol 8
-};
-     * 
-    { {9900 , 1000}, {2675, 180}, {275, 180}, {1225, 180}, PULSE_LOW_LOW, PULSE_LOW_HIGH, true },
-    { {5700 , 50}, {0, 0}, {180, 100}, {551, 100}, PULSE_LOW_HIGH, PULSE_HIGH_LOW, false },
-
-5649 242 495 241 495 242 498 238 499 237 499 606 133 236 500 236 500 236 502 603 136 233 500 604 132 238 501 602 134 234 507 598 138 229 511 227 508 596 142 594 144 224 514 223 519 586 144 592 145 224 
-details 31 182 109   
-syncLengthInPulses, delay, delayTolerance
-     */
     unsigned int firstDataTiming = 1;
     if (pro.latch.low && pro.latch.high) {
         if (diff(RCSwitch::timings[2], delay * pro.latch.low) > delayTolerance ||
@@ -659,19 +640,27 @@ syncLengthInPulses, delay, delayTolerance
         if (diff(RCSwitch::timings[i], delay * pro.zero.high) < delayTolerance &&
             diff(RCSwitch::timings[i + 1], delay * pro.zero.low) < delayTolerance) {
             // zero
+            sCodeWord[i/2] = '0';
         } else if (diff(RCSwitch::timings[i], delay * pro.one.high) < delayTolerance &&
                    diff(RCSwitch::timings[i + 1], delay * pro.one.low) < delayTolerance) {
             // one
             code |= 1;
+            // printf("1");
+            sCodeWord[i/2] = '1';
         } else {
             // Failed
             return false;
         }
     }
-
+    
     if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
         RCSwitch::nReceivedValue = code;
         RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 3 : 1)) / 2;
+        sCodeWord[RCSwitch::nReceivedBitlength] = '\0';
+        // printf("sCodeWord: %s\n", sCodeWord);
+        // RCSwitch::nReceivedCodeWord = sCodeWord;
+        // strcpy(RCSwitch::nReceivedCodeWord, sCodeWord);
+        // sprintf(RCSwitch::nReceivedCodeWord, "%s", sCodeWord);
         RCSwitch::nReceivedDelay = delay;
         RCSwitch::nReceivedProtocol = p;
 
