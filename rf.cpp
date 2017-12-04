@@ -76,6 +76,7 @@ Received 2791937450 / 64 bit, Protocol 8
 // Received 284099 / 24 bit, Protocol 1
 // 000001000101010111000011 <- calculated
 // 000001000101010111000011 <- printed
+// 000001000101010111000011
 // 000001000101010111001100
 
 
@@ -95,7 +96,7 @@ Received 2791937450 / 64 bit, Protocol 8
                     for(unsigned int o = 0; o < changeCount; o++) {
                         printf("%d ", timings[o]);
                     }            
-                    printf("\nReceived %lu", mySwitch.getReceivedValue());
+                    printf("\nReceived long %lu / str %s", mySwitch.getReceivedValue(), mySwitch.getReceivedCodeWord());
                     printf(" / %d bit, Protocol %d\n", mySwitch.getReceivedBitlength(), mySwitch.getReceivedProtocol());
                 }
 

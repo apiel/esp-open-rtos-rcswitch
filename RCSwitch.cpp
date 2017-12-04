@@ -92,6 +92,7 @@ volatile unsigned long RCSwitch::nReceivedValue = 0;
 volatile unsigned int RCSwitch::nReceivedBitlength = 0;
 volatile unsigned int RCSwitch::nReceivedDelay = 0;
 volatile unsigned int RCSwitch::nReceivedProtocol = 0;
+char RCSwitch::nReceivedCodeWord[RCSWITCH_MAX_CHANGES];
 int RCSwitch::nReceiveTolerance = 60;
 const unsigned int RCSwitch::nSeparationLimit = 4300;
 // separationLimit: minimum microseconds between received codes, closer codes are ignored.
@@ -578,9 +579,9 @@ void RCSwitch::resetAvailable() {
   RCSwitch::nReceivedValue = 0;
 }
 
-// char * RCSwitch::getReceivedCodeWord() {
-//   return RCSwitch::nReceivedCodeWord;
-// }
+char * RCSwitch::getReceivedCodeWord() {
+  return RCSwitch::nReceivedCodeWord;
+}
 
 unsigned long RCSwitch::getReceivedValue() {
   return RCSwitch::nReceivedValue;
@@ -641,12 +642,14 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
             diff(RCSwitch::timings[i + 1], delay * pro.zero.low) < delayTolerance) {
             // zero
             sCodeWord[i/2] = '0';
+            // RCSwitch::nReceivedBinary[i/2] = 0;
         } else if (diff(RCSwitch::timings[i], delay * pro.one.high) < delayTolerance &&
                    diff(RCSwitch::timings[i + 1], delay * pro.one.low) < delayTolerance) {
             // one
             code |= 1;
             // printf("1");
             sCodeWord[i/2] = '1';
+            // RCSwitch::nReceivedBinary[i/2] = 1;
         } else {
             // Failed
             return false;
@@ -657,10 +660,7 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
         RCSwitch::nReceivedValue = code;
         RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 3 : 1)) / 2;
         sCodeWord[RCSwitch::nReceivedBitlength] = '\0';
-        // printf("sCodeWord: %s\n", sCodeWord);
-        // RCSwitch::nReceivedCodeWord = sCodeWord;
-        // strcpy(RCSwitch::nReceivedCodeWord, sCodeWord);
-        // sprintf(RCSwitch::nReceivedCodeWord, "%s", sCodeWord);
+        sprintf(RCSwitch::nReceivedCodeWord, sCodeWord);
         RCSwitch::nReceivedDelay = delay;
         RCSwitch::nReceivedProtocol = p;
 

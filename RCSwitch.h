@@ -87,7 +87,7 @@ class RCSwitch {
     bool available();
     void resetAvailable();
 
-    // char * getReceivedCodeWord();
+    char * getReceivedCodeWord();
     unsigned long getReceivedValue();
     unsigned int getReceivedBitlength();
     unsigned int getReceivedDelay();
@@ -174,7 +174,8 @@ class RCSwitch {
 
     #if not defined( RCSwitchDisableReceiving )
     static int nReceiveTolerance;
-    volatile static char nReceivedCodeWord[RCSWITCH_MAX_CHANGES];
+    static char nReceivedCodeWord[RCSWITCH_MAX_CHANGES];
+    // static unsigned int nReceivedBinary[RCSWITCH_MAX_CHANGES];
     volatile static unsigned long nReceivedValue;
     volatile static unsigned int nReceivedBitlength;
     volatile static unsigned int nReceivedDelay;
