@@ -639,11 +639,13 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     const unsigned int delay = RCSwitch::timings[0] / syncLengthInPulses;
     const unsigned int delayTolerance = delay * RCSwitch::nReceiveTolerance / 100;
     unsigned int firstDataTiming = 1;
+    unsigned int withLatch = 0;
     if (pro.latch.low && pro.latch.high) {
         if (diff(RCSwitch::timings[2], delay * pro.latch.low) > delayTolerance ||
             diff(RCSwitch::timings[1], delay * pro.latch.high) > delayTolerance) {
               return false;
         }
+        withLatch = 2;
         firstDataTiming += 2;
     }
     if (pro.invertedSignal) {
@@ -654,11 +656,11 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
         if (diff(RCSwitch::timings[i], delay * pro.zero.high) < delayTolerance &&
             diff(RCSwitch::timings[i + 1], delay * pro.zero.low) < delayTolerance) {
             // zero
-            sCodeWord[i/2] = '0';
+            sCodeWord[(i-withLatch)/2] = '0';
         } else if (diff(RCSwitch::timings[i], delay * pro.one.high) < delayTolerance &&
                    diff(RCSwitch::timings[i + 1], delay * pro.one.low) < delayTolerance) {
             // one
-            sCodeWord[i/2] = '1';
+            sCodeWord[(i-withLatch)/2] = '1';
         } else {
             // Failed
             return false;
@@ -666,7 +668,7 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     }
     
     if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
-        RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 3 : 1)) / 2;
+        RCSwitch::nReceivedBitlength = (changeCount - (1 + withLatch)) / 2;
         sCodeWord[RCSwitch::nReceivedBitlength] = '\0';
         sprintf(RCSwitch::nReceivedCodeWord, sCodeWord);
         RCSwitch::nReceivedDelay = delay;
