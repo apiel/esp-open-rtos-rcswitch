@@ -73,6 +73,7 @@ Received 2791937450 / 64 bit, Protocol 8
 
 // 5667 270 512 224 510 224 512 224 512 222 512 591 144 223 516 219 514 223 512 590 147 220 515 589 147 220 516 587 149 219 519 584 149 586 150 586 154 213 520 215 521 216 519 215 524 579 155 580 155 
 //            0       0       0       0       0       1       0       0       0       1       0       1       0       1       0       1       1       1       0       0       0       0       1       1
+//          284099
 // Received 284099 / 24 bit, Protocol 1
 // 000001000101010111000011 <- calculated
 // 000001000101010111000011 <- printed
@@ -86,19 +87,15 @@ Received 2791937450 / 64 bit, Protocol 8
         while(true) {
             if (mySwitch.available()) {
                 printf("received\n");
-                int value = mySwitch.getReceivedValue();
-                
-                if (value == 0) {
-                    printf("Unknown encoding\n");
-                } else {
-                    unsigned int * timings = mySwitch.getReceivedRawdata();
-                    unsigned int changeCount = mySwitch.getReceivedBitlength()*2 + 1;
-                    for(unsigned int o = 0; o < changeCount; o++) {
-                        printf("%d ", timings[o]);
-                    }            
-                    printf("\nReceived long %lu / str %s", mySwitch.getReceivedValue(), mySwitch.getReceivedCodeWord());
-                    printf(" / %d bit, Protocol %d\n", mySwitch.getReceivedBitlength(), mySwitch.getReceivedProtocol());
-                }
+
+                unsigned int * timings = mySwitch.getReceivedRawdata();
+                unsigned int changeCount = mySwitch.getReceivedBitlength()*2 + 1;
+                for(unsigned int o = 0; o < changeCount; o++) {
+                    printf("%d ", timings[o]);
+                }            
+                printf("\nReceived long %lu", mySwitch.getReceivedValue());
+                printf("\nReceived str %s", mySwitch.getReceivedCodeWord());
+                printf(" / %d bit, Protocol %d\n", mySwitch.getReceivedBitlength(), mySwitch.getReceivedProtocol());
 
                 mySwitch.resetAvailable();
             }  

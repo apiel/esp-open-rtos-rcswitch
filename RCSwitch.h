@@ -175,8 +175,6 @@ class RCSwitch {
     #if not defined( RCSwitchDisableReceiving )
     static int nReceiveTolerance;
     static char nReceivedCodeWord[RCSWITCH_MAX_CHANGES];
-    // static unsigned int nReceivedBinary[RCSWITCH_MAX_CHANGES];
-    volatile static unsigned long nReceivedValue;
     volatile static unsigned int nReceivedBitlength;
     volatile static unsigned int nReceivedDelay;
     volatile static unsigned int nReceivedProtocol;

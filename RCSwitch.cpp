@@ -88,7 +88,6 @@ enum {
 };
 
 #if not defined( RCSwitchDisableReceiving )
-volatile unsigned long RCSwitch::nReceivedValue = 0;
 volatile unsigned int RCSwitch::nReceivedBitlength = 0;
 volatile unsigned int RCSwitch::nReceivedDelay = 0;
 volatile unsigned int RCSwitch::nReceivedProtocol = 0;
@@ -108,7 +107,7 @@ RCSwitch::RCSwitch() {
   #if not defined( RCSwitchDisableReceiving )
   this->nReceiverInterrupt = -1;
   this->setReceiveTolerance(60);
-  RCSwitch::nReceivedValue = 0;
+  RCSwitch::nReceivedCodeWord[0] = '\0';
   #endif
 }
 
@@ -551,7 +550,7 @@ void RCSwitch::enableReceive(int interrupt) {
 
 void RCSwitch::enableReceive() {
   if (this->nReceiverInterrupt != -1) {
-    RCSwitch::nReceivedValue = 0;
+    RCSwitch::nReceivedCodeWord[0] = '\0';
     RCSwitch::nReceivedBitlength = 0;
 #if defined(RaspberryPi) // Raspberry Pi
     wiringPiISR(this->nReceiverInterrupt, INT_EDGE_BOTH, &handleInterrupt);
@@ -572,19 +571,35 @@ void RCSwitch::disableReceive() {
 }
 
 bool RCSwitch::available() {
-  return RCSwitch::nReceivedValue != 0;
+  return RCSwitch::nReceivedCodeWord[0] != '\0';
 }
 
 void RCSwitch::resetAvailable() {
-  RCSwitch::nReceivedValue = 0;
+  RCSwitch::nReceivedCodeWord[0] = '\0';
 }
 
 char * RCSwitch::getReceivedCodeWord() {
   return RCSwitch::nReceivedCodeWord;
 }
 
+/**
+ * getReceivedValue is only returning number value for code of maximum 32 bits
+ * Over 32 bits only CodeWord is available due to the limitation of unsigned long to 32 bits
+ * We could eventualy change it to unsigned long long but it would break compatibility with exciting 
+ * program using it. Also some microcontroller don't support completely 64 bit integer like esp8266.
+ */
 unsigned long RCSwitch::getReceivedValue() {
-  return RCSwitch::nReceivedValue;
+  if (getReceivedBitlength() > 32)
+    return 0;
+  
+  unsigned long code = 0;
+  unsigned int bits = getReceivedBitlength();
+  for (unsigned int i = 0; i < bits; i++) {
+    code <<= 1;
+    if (RCSwitch::nReceivedCodeWord[i] == '1')
+      code |= 1;
+  }
+  return  code;
 }
 
 unsigned int RCSwitch::getReceivedBitlength() {
@@ -619,7 +634,6 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     memcpy_P(&pro, &proto[p-1], sizeof(Protocol));
 #endif
     char sCodeWord[RCSWITCH_MAX_CHANGES];
-    unsigned long code = 0;
     //Assuming the longer pulse length is the pulse captured in timings[0]
     const unsigned int syncLengthInPulses =  ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
     const unsigned int delay = RCSwitch::timings[0] / syncLengthInPulses;
@@ -637,19 +651,14 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     }
 
     for (unsigned int i = firstDataTiming; i < changeCount - 1; i += 2) {
-        code <<= 1;
         if (diff(RCSwitch::timings[i], delay * pro.zero.high) < delayTolerance &&
             diff(RCSwitch::timings[i + 1], delay * pro.zero.low) < delayTolerance) {
             // zero
             sCodeWord[i/2] = '0';
-            // RCSwitch::nReceivedBinary[i/2] = 0;
         } else if (diff(RCSwitch::timings[i], delay * pro.one.high) < delayTolerance &&
                    diff(RCSwitch::timings[i + 1], delay * pro.one.low) < delayTolerance) {
             // one
-            code |= 1;
-            // printf("1");
             sCodeWord[i/2] = '1';
-            // RCSwitch::nReceivedBinary[i/2] = 1;
         } else {
             // Failed
             return false;
@@ -657,7 +666,6 @@ bool RECEIVE_ATTR RCSwitch::receiveProtocol(const int p, unsigned int changeCoun
     }
     
     if (changeCount > 7) {    // ignore very short transmissions: no device sends them, so this must be noise
-        RCSwitch::nReceivedValue = code;
         RCSwitch::nReceivedBitlength = (changeCount - ((pro.latch.low && pro.latch.high) ? 3 : 1)) / 2;
         sCodeWord[RCSwitch::nReceivedBitlength] = '\0';
         sprintf(RCSwitch::nReceivedCodeWord, sCodeWord);
